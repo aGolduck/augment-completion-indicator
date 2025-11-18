@@ -1,0 +1,91 @@
+{
+  "name": "augment-completion-indicator",
+  "displayName": "Augment Completion Indicator",
+  "description": "监控 Augment 活动状态并在窗口标题显示完成标记",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Augment Completion Indicator",
+      "properties": {
+        "augmentCompletionIndicator.idleThreshold": {
+          "type": "number",
+          "default": 60,
+          "description": "空闲时间阈值（秒），命令结束后超过此时间无活动视为完成",
+          "minimum": 10,
+          "maximum": 600
+        },
+        "augmentCompletionIndicator.warmupPeriod": {
+          "type": "number",
+          "default": 10,
+          "description": "预热期时间（秒），插件启动后此时间内忽略所有活动",
+          "minimum": 0,
+          "maximum": 60
+        },
+        "augmentCompletionIndicator.completionMarker": {
+          "type": "string",
+          "default": "🔔 ",
+          "description": "完成标记符号"
+        },
+        "augmentCompletionIndicator.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用监控"
+        },
+        "augmentCompletionIndicator.verbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否显示详细日志"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "augmentCompletionIndicator.enable",
+        "title": "Augment: 启用完成监控"
+      },
+      {
+        "command": "augmentCompletionIndicator.disable",
+        "title": "Augment: 禁用完成监控"
+      },
+        {
+            "command": "augmentCompletionIndicator.clearMarker",
+            "title": "Augment: 清除完成标记"
+        },
+        {
+            "command": "augmentCompletionIndicator.showStatus",
+            "title": "Augment: 显示监控状态"
+        },
+        {
+            "command": "augmentCompletionIndicator.testMark",
+            "title": "Augment: 测试标记（调试用）"
+        }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+
