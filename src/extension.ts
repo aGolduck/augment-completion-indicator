@@ -6,11 +6,9 @@
 import * as vscode from 'vscode';
 import { ActivityMonitor } from './activityMonitor';
 import { TitleManager } from './titleManager';
-import { NetworkMonitor } from './networkMonitor';
 
 let activityMonitor: ActivityMonitor | null = null;
 let titleManager: TitleManager | null = null;
-let networkMonitor: NetworkMonitor | null = null;
 let isEnabled: boolean = true;
 let outputChannel: vscode.OutputChannel;
 
@@ -157,7 +155,6 @@ function startMonitoring(): void {
 
     activityMonitor = new ActivityMonitor(idleThreshold, warmupPeriod, verbose, outputChannel);
     titleManager = new TitleManager(completionMarker, verbose, outputChannel);
-    networkMonitor = new NetworkMonitor(outputChannel, verbose);
 
     // 设置完成回调
     activityMonitor.onCompletion(() => {
@@ -166,15 +163,7 @@ function startMonitoring(): void {
         }
     });
 
-    // 设置网络监控的活动回调
-    networkMonitor.onActivity((source: string) => {
-        if (activityMonitor) {
-            activityMonitor.recordActivity(source);
-        }
-    });
-
     activityMonitor.start();
-    networkMonitor.start();
 }
 
 /**
@@ -192,11 +181,6 @@ function stopMonitoring(): void {
     if (titleManager) {
         titleManager.clearMarker();
         titleManager = null;
-    }
-
-    if (networkMonitor) {
-        networkMonitor.stop();
-        networkMonitor = null;
     }
 }
 

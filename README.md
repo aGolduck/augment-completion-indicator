@@ -75,9 +75,9 @@ code --install-extension augment-completion-indicator-0.1.0.vsix
 ## 工作原理
 
 1. **活动检测**: 扩展监控以下事件来检测 Augment 的活动：
-   - 终端命令执行（命令开始和结束）
-   - 文本文档变化（代码生成）
-   - 网络请求（Augment API 调用）
+   - ✅ **文本文档变化**（代码生成和修改）- 最可靠的监控方法
+   - ✅ **终端命令执行**（命令开始和结束）
+   - ✅ **文件系统操作**（创建、删除、重命名文件）
 
 2. **状态转换**:
    - **命令开始** → 进入"等待命令完成"状态
@@ -94,6 +94,18 @@ code --install-extension augment-completion-indicator-0.1.0.vsix
    - 在窗口标题前添加 🔔 标记
    - 当窗口获得焦点时自动清除标记
 
+## 技术限制
+
+由于 VSCode 扩展的设计限制，以下监控方法**无法实现**：
+- ❌ 网络请求监控（进程隔离、HTTP 客户端多样性）
+- ❌ 输出通道监控（OutputChannel 是私有资源）
+- ❌ 状态栏消息监控（无相关 API）
+- ❌ 扩展状态监控（只能检测激活状态，无法检测实际工作）
+
+详细的技术原因请参考 [TECHNICAL_LIMITATIONS.md](TECHNICAL_LIMITATIONS.md)
+
+**结论**：这些方法都已从代码中移除，扩展仅依赖上述三种可靠的监控方法。
+
 ## 注意事项
 
 - 此扩展通过监控编辑器事件来间接检测 Augment 的活动，可能不是 100% 准确
@@ -104,6 +116,7 @@ code --install-extension augment-completion-indicator-0.1.0.vsix
 
 - [状态流程文档](docs/状态流程.md) - 详细的状态转换流程和设计思想
 - [测试流程文档](docs/测试流程.md) - 完整的测试用例和验证步骤
+- [技术限制说明](TECHNICAL_LIMITATIONS.md) - 详细解释为什么某些监控方法无法实现
 
 ## 开发
 
