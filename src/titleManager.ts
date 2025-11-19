@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 
 export class TitleManager {
-    private originalTitle: string | null = null;
     private isMarked: boolean = false;
     private completionMarker: string;
     private verbose: boolean;
@@ -42,22 +41,13 @@ export class TitleManager {
      */
     public markCompletion(): void {
         if (this.isMarked) {
-            this.log('窗口已标记，跳过', 'warn');
+            this.verbose && this.log('窗口已标记，跳过', 'warn');
             return;
         }
 
-        // 获取当前窗口标题配置
-        const config = vscode.workspace.getConfiguration();
-        const currentTitleConfig = config.get<string>('window.title');
-
-        // 保存原始配置（可能是 undefined，表示使用默认值）
-        this.originalTitle = currentTitleConfig || null;
-
-        // 获取工作区名称
         const workspaceName = this.getWorkspaceName();
-
-        // 设置新标题
         const newTitle = `${this.completionMarker}${workspaceName}`;
+
         this.setTitle(newTitle);
         this.isMarked = true;
 
@@ -70,23 +60,24 @@ export class TitleManager {
      */
     public async clearMarker(): Promise<void> {
         if (!this.isMarked) {
-            this.log('无需清除标记（未标记）', 'info');
+            // 不需要清除时，不打印日志
             return;
         }
 
-        this.log(`🔄 清除窗口标记...`, 'info');
+        // 获取当前标题用于日志
+        const workspaceName = this.getWorkspaceName();
+        const markedTitle = `${this.completionMarker}${workspaceName}`;
 
         // 删除 window.title 配置，恢复默认
         const config = vscode.workspace.getConfiguration();
         try {
             await config.update('window.title', undefined, vscode.ConfigurationTarget.Workspace);
-            this.log(`✅ 窗口标记已清除`, 'info');
+            this.log(`✅ 窗口标题已清除: "${markedTitle}" → "${workspaceName}"`, 'info');
         } catch (error) {
             this.log(`❌ 清除窗口标记失败: ${error}`, 'error');
         }
 
         this.isMarked = false;
-        this.originalTitle = null;
     }
     
     /**

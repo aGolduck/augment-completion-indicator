@@ -4,10 +4,12 @@
 
 ## 功能特性
 
-- 🔍 **自动监控**: 自动检测 Augment 的活动状态（通过监控代码变化、诊断信息等）
-- ✅ **完成提示**: 当 Augment 从活跃状态转为空闲时，在窗口标题添加 ✓ 标记
-- 🎯 **智能清除**: 当你点击或激活已标记的窗口时，标记自动消失
-- ⚙️ **可配置**: 支持自定义空闲阈值、活跃阈值和标记符号
+- 🔍 **自动监控**: 自动检测 Augment 的活动状态（通过监控代码变化、文件变化、终端命令等）
+- 📁 **Augment Store 监控**: 直接监控 Augment 的 KV store 文件变化，最可靠的监控方式
+- 🎯 **工作区隔离**: 精确定位当前工作区，多窗口场景下不会混淆
+- ✅ **完成提示**: 当 Augment 从活跃状态转为空闲时，在窗口标题添加标记
+- 🔄 **智能清除**: 当你点击或激活已标记的窗口时，标记自动消失
+- ⚙️ **可配置**: 支持自定义空闲阈值、预热期和标记符号
 
 ## 使用场景
 
@@ -46,25 +48,35 @@ code --install-extension augment-completion-indicator-0.1.0.vsix
 
 ```json
 {
-  // 是否启用监控
+  // 基础配置
   "augmentCompletionIndicator.enabled": true,
-
-  // 空闲时间阈值（秒），命令结束后超过此时间无活动视为完成
   "augmentCompletionIndicator.idleThreshold": 60,
-
-  // 命令超时时间（秒），命令执行超过此时间自动开始倒计时
-  "augmentCompletionIndicator.commandTimeout": 120,
-
-  // 预热期时间（秒），插件启动后此时间内忽略所有活动
   "augmentCompletionIndicator.warmupPeriod": 10,
-
-  // 完成标记符号
   "augmentCompletionIndicator.completionMarker": "🔔 ",
+  "augmentCompletionIndicator.verbose": false,
 
-  // 是否显示详细日志
-  "augmentCompletionIndicator.verbose": false
+  // 监控方法配置（可选择性启用/禁用）
+  "augmentCompletionIndicator.useAugmentStoreWatcher": true,      // Augment Store 监控 - 最全面，推荐启用
+  "augmentCompletionIndicator.useDocumentWatcher": true,  // 文档监控 - 捕获代码变化
+  "augmentCompletionIndicator.useTerminalWatcher": true   // 终端监控 - 捕获命令执行
 }
 ```
+
+### 配置说明
+
+**基础配置**：
+- `enabled`: 是否启用监控
+- `idleThreshold`: 空闲时间阈值（秒），超过此时间无活动视为完成
+- `warmupPeriod`: 预热期时间（秒），插件启动后此时间内忽略所有活动
+- `completionMarker`: 完成标记符号
+- `verbose`: 是否显示详细日志
+
+**监控方法配置**：
+- `useAugmentStoreWatcher`: Augment Store 监控 - 监控 Augment KV store 文件变化，最全面的监控方式
+- `useDocumentWatcher`: 文档监控 - 监控文档内容变化，捕获代码生成和修改
+- `useTerminalWatcher`: 终端监控 - 监控终端命令执行，捕获命令执行结果
+
+**✨ 所有配置项都支持热生效**：修改配置后会自动应用，无需手动重启。
 
 ## 命令
 
@@ -77,7 +89,7 @@ code --install-extension augment-completion-indicator-0.1.0.vsix
 1. **活动检测**: 扩展监控以下事件来检测 Augment 的活动：
    - ✅ **文本文档变化**（代码生成和修改）- 最可靠的监控方法
    - ✅ **终端命令执行**（命令开始和结束）
-   - ✅ **文件系统操作**（创建、删除、重命名文件）
+   - ✅ **Augment KV Store 文件变化**（监控 Augment 的 LevelDB 数据库文件）- **新增！最直接的监控方法**
 
 2. **状态转换**:
    - **命令开始** → 进入"等待命令完成"状态
@@ -114,8 +126,8 @@ code --install-extension augment-completion-indicator-0.1.0.vsix
 
 ## 📚 文档
 
-- [状态流程文档](docs/状态流程.md) - 详细的状态转换流程和设计思想
-- [测试流程文档](docs/测试流程.md) - 完整的测试用例和验证步骤
+- [使用指南](docs/GUIDE.md) - 安装、配置、测试和调试指南
+- [架构和原理](docs/ARCHITECTURE.md) - 系统架构、监控方法、状态流程和技术细节
 - [技术限制说明](TECHNICAL_LIMITATIONS.md) - 详细解释为什么某些监控方法无法实现
 
 ## 开发
@@ -141,4 +153,3 @@ MIT
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
-

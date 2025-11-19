@@ -107,6 +107,18 @@ export class ActivityMonitor {
         this.log('🔄 窗口获得焦点，所有状态已重置', 'info');
     }
 
+    /**
+     * 进入活跃状态
+     */
+    private enterActiveState(): void {
+        if (!this.isActive) {
+            this.isActive = true;
+            this.wasActive = true;
+            this.log(`✅ 进入活跃状态`, 'info');
+            this.outputChannel.show(true);
+        }
+    }
+
     // ==================== 公共方法 ====================
 
     /**
@@ -120,20 +132,16 @@ export class ActivityMonitor {
      * 设置窗口焦点状态
      */
     public setWindowFocus(hasFocus: boolean): void {
-        const oldFocus = this.windowHasFocus;
+        if (this.windowHasFocus === hasFocus) return;
+
+        this.log(`🔍 窗口焦点状态变化: ${this.windowHasFocus ? '有焦点' : '无焦点'} → ${hasFocus ? '有焦点' : '无焦点'}`, 'info');
         this.windowHasFocus = hasFocus;
 
-        if (oldFocus !== hasFocus) {
-            this.log(`🔍 窗口焦点状态变化: ${oldFocus ? '有焦点' : '无焦点'} → ${hasFocus ? '有焦点' : '无焦点'}`, 'info');
-
-            // 窗口获得焦点时，重置所有状态
-            if (hasFocus) {
-                this.resetAllState();
-            }
+        // 窗口获得焦点时，重置所有状态
+        if (hasFocus) {
+            this.resetAllState();
         }
     }
-
-
 
     /**
      * 记录命令结束
@@ -144,17 +152,13 @@ export class ActivityMonitor {
 
         // 预热期内忽略
         if (now - this.startTime < this.warmupPeriod) {
-            if (this.verbose) {
-                this.log(`⏳ 预热期内，忽略命令结束: ${command} [${status}]`, 'info');
-            }
+            this.verbose && this.log(`⏳ 预热期内，忽略命令结束: ${command} [${status}]`, 'info');
             return;
         }
 
         // 如果窗口有焦点，忽略（用户能看到）
         if (this.windowHasFocus) {
-            if (this.verbose) {
-                this.log(`👁️ 窗口有焦点，忽略命令结束: ${command} [${status}]`, 'info');
-            }
+            this.verbose && this.log(`👁️ 窗口有焦点，忽略命令结束: ${command} [${status}]`, 'info');
             return;
         }
 
@@ -162,17 +166,8 @@ export class ActivityMonitor {
         this.activityCount++;
         this.log(`✅ 命令结束 [${status}] #${this.activityCount}: ${command}`, 'info');
 
-        // 进入活跃状态
-        if (!this.isActive) {
-            this.isActive = true;
-            this.wasActive = true;
-            this.log(`✅ 进入活跃状态`, 'info');
-            this.outputChannel.show(true);
-        }
-
-        // 开始空闲倒计时
+        this.enterActiveState();
         this.lastActivityTime = now;
-        this.log(`⏱️ 开始 ${this.idleThreshold / 1000} 秒空闲倒计时`, 'info');
     }
 
     /**
@@ -195,16 +190,9 @@ export class ActivityMonitor {
 
         this.activityCount++;
         this.lastActivityTime = now;
-
         this.log(`活动检测 #${this.activityCount} [来源: ${source}]`, 'info');
 
-        // 任何活动都立即进入活跃状态
-        if (!this.isActive) {
-            this.isActive = true;
-            this.wasActive = true;
-            this.log(`✅ 进入活跃状态 (来源: ${source})`, 'info');
-            this.outputChannel.show(true);
-        }
+        this.enterActiveState();
     }
     
     /**
@@ -243,7 +231,7 @@ export class ActivityMonitor {
         this.wasActive = false;
         this.isActive = false;
         this.activityCount = 0;
-        this.log('🔄 完成标志已重置', 'info');
+        // 不打印日志，避免重复（由调用方打印）
     }
 
     /**

@@ -6,117 +6,55 @@
 import * as vscode from 'vscode';
 import { ActivityMonitor } from './activityMonitor';
 import { TitleManager } from './titleManager';
+import { AugmentStoreWatcher } from './augmentStoreWatcher';
+import { DocumentWatcher } from './documentWatcher';
+import { TerminalWatcher } from './terminalWatcher';
 
 let activityMonitor: ActivityMonitor | null = null;
 let titleManager: TitleManager | null = null;
+let augmentStoreWatcher: AugmentStoreWatcher | null = null;
+let documentWatcher: DocumentWatcher | null = null;
+let terminalWatcher: TerminalWatcher | null = null;
 let isEnabled: boolean = true;
 let outputChannel: vscode.OutputChannel;
+let extensionContext: vscode.ExtensionContext;
+
+/**
+ * 日志辅助函数
+ */
+function log(message: string): void {
+    outputChannel.appendLine(message);
+}
 
 /**
  * 激活扩展
  */
 export function activate(context: vscode.ExtensionContext) {
-    // 创建输出通道
+    extensionContext = context;
     outputChannel = vscode.window.createOutputChannel('Augment Completion Indicator');
-    outputChannel.appendLine('='.repeat(60));
-    outputChannel.appendLine('Augment Completion Indicator 已激活');
-    outputChannel.appendLine('='.repeat(60));
-    outputChannel.appendLine('');
 
-    console.log('Augment Completion Indicator 已激活');
+    log('='.repeat(60));
+    log('Augment Completion Indicator 已激活');
+    log('='.repeat(60));
 
-    // 读取配置
     const config = vscode.workspace.getConfiguration('augmentCompletionIndicator');
     isEnabled = config.get('enabled', true);
 
-    outputChannel.appendLine(`配置: 启用=${isEnabled}`);
+    log(`配置: 启用=${isEnabled}`);
 
     // 清除启动时可能存在的遗留标记
     clearStartupMarker();
 
-    // 设置活动监控事件监听器（只需要设置一次）
-    setupActivityMonitoring(context);
-
     if (isEnabled) {
         startMonitoring();
     } else {
-        outputChannel.appendLine('监控已禁用（可通过命令启用）');
+        log('监控已禁用（可通过命令启用）');
     }
 
-    // 显示输出面板
     outputChannel.show(true);
 
     // 注册命令
-    context.subscriptions.push(
-        vscode.commands.registerCommand('augmentCompletionIndicator.enable', () => {
-            isEnabled = true;
-            vscode.workspace.getConfiguration('augmentCompletionIndicator')
-                .update('enabled', true, vscode.ConfigurationTarget.Global);
-            outputChannel.appendLine('📢 用户启用了监控');
-            startMonitoring();
-            vscode.window.showInformationMessage('Augment 完成监控已启用');
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('augmentCompletionIndicator.disable', () => {
-            isEnabled = false;
-            vscode.workspace.getConfiguration('augmentCompletionIndicator')
-                .update('enabled', false, vscode.ConfigurationTarget.Global);
-            outputChannel.appendLine('📢 用户禁用了监控');
-            stopMonitoring();
-            vscode.window.showInformationMessage('Augment 完成监控已禁用');
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('augmentCompletionIndicator.clearMarker', async () => {
-            outputChannel.appendLine('📢 用户手动清除标记');
-            if (titleManager) {
-                await titleManager.clearMarker();
-                if (activityMonitor) {
-                    activityMonitor.resetCompletionFlag();
-                }
-                vscode.window.showInformationMessage('已清除完成标记');
-            }
-        })
-    );
-
-    // 添加查看状态命令
-    context.subscriptions.push(
-        vscode.commands.registerCommand('augmentCompletionIndicator.showStatus', () => {
-            try {
-                if (activityMonitor) {
-                    const status = activityMonitor.getStatus();
-                    outputChannel.appendLine('📊 ' + status);
-                    vscode.window.showInformationMessage(status);
-                    outputChannel.show(true);
-                } else {
-                    const message = `监控未启动 (enabled=${isEnabled})`;
-                    outputChannel.appendLine('⚠️ ' + message);
-                    vscode.window.showWarningMessage(message);
-                    outputChannel.show(true);
-                }
-            } catch (error) {
-                const errorMsg = `获取状态失败: ${error}`;
-                outputChannel.appendLine('❌ ' + errorMsg);
-                vscode.window.showErrorMessage(errorMsg);
-                outputChannel.show(true);
-            }
-        })
-    );
-
-    // 添加测试标记命令（用于调试）
-    context.subscriptions.push(
-        vscode.commands.registerCommand('augmentCompletionIndicator.testMark', () => {
-            outputChannel.appendLine('📢 用户手动测试标记');
-            if (titleManager) {
-                titleManager.markCompletion();
-            } else {
-                vscode.window.showWarningMessage('TitleManager 未初始化');
-            }
-        })
-    );
+    registerCommands(context);
     
     // 监听配置变化
     context.subscriptions.push(
@@ -126,172 +64,8 @@ export function activate(context: vscode.ExtensionContext) {
             }
         })
     );
-}
 
-/**
- * 启动监控
- */
-function startMonitoring(): void {
-    if (activityMonitor && titleManager) {
-        outputChannel.appendLine('⚠️ 监控已在运行中');
-        return; // 已经在运行
-    }
-
-    const config = vscode.workspace.getConfiguration('augmentCompletionIndicator');
-    const idleThreshold = config.get('idleThreshold', 60);
-    const warmupPeriod = config.get('warmupPeriod', 10);
-    const completionMarker = config.get('completionMarker', '🔔 ');
-    const verbose = config.get('verbose', false);
-
-    outputChannel.appendLine('');
-    outputChannel.appendLine('='.repeat(60));
-    outputChannel.appendLine('🚀 启动监控');
-    outputChannel.appendLine(`   空闲阈值: ${idleThreshold} 秒`);
-    outputChannel.appendLine(`   预热期: ${warmupPeriod} 秒`);
-    outputChannel.appendLine(`   完成标记: "${completionMarker}"`);
-    outputChannel.appendLine(`   详细日志: ${verbose ? '开启' : '关闭'}`);
-    outputChannel.appendLine('='.repeat(60));
-    outputChannel.appendLine('');
-
-    activityMonitor = new ActivityMonitor(idleThreshold, warmupPeriod, verbose, outputChannel);
-    titleManager = new TitleManager(completionMarker, verbose, outputChannel);
-
-    // 设置完成回调
-    activityMonitor.onCompletion(() => {
-        if (titleManager) {
-            titleManager.markCompletion();
-        }
-    });
-
-    activityMonitor.start();
-}
-
-/**
- * 停止监控
- */
-function stopMonitoring(): void {
-    outputChannel.appendLine('');
-    outputChannel.appendLine('🛑 停止监控');
-
-    if (activityMonitor) {
-        activityMonitor.stop();
-        activityMonitor = null;
-    }
-
-    if (titleManager) {
-        titleManager.clearMarker();
-        titleManager = null;
-    }
-}
-
-/**
- * 更新配置
- */
-function updateConfiguration(): void {
-    const config = vscode.workspace.getConfiguration('augmentCompletionIndicator');
-    const enabled = config.get('enabled', true);
-
-    if (enabled !== isEnabled) {
-        isEnabled = enabled;
-        if (enabled) {
-            startMonitoring();
-        } else {
-            stopMonitoring();
-        }
-        return;
-    }
-
-    if (activityMonitor && titleManager) {
-        const idleThreshold = config.get('idleThreshold', 60);
-        const warmupPeriod = config.get('warmupPeriod', 10);
-        const completionMarker = config.get('completionMarker', '🔔 ');
-        const verbose = config.get('verbose', false);
-
-        outputChannel.appendLine('⚙️ 配置已更新');
-        activityMonitor.updateConfig(idleThreshold, warmupPeriod, verbose);
-        titleManager.updateConfig(completionMarker, verbose);
-    }
-}
-
-/**
- * 设置活动监控
- * 通过监控各种编辑器事件来检测 Augment 的活动
- */
-function setupActivityMonitoring(context: vscode.ExtensionContext): void {
-    outputChannel.appendLine('📡 设置活动监控事件监听器...');
-
-    // 监控文本文档变化（Augment 生成代码时会触发）
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeTextDocument(e => {
-            if (activityMonitor && isEnabled) {
-                // 使用白名单：只监控真实文件和远程文件
-                const scheme = e.document.uri.scheme;
-                const allowedSchemes = ['file', 'vscode-remote', 'untitled'];
-
-                if (!allowedSchemes.includes(scheme)) {
-                    return;  // 排除所有非文件系统的文档（输出面板、调试控制台、Git、搜索结果等）
-                }
-
-                // 排除 .vscode/settings.json 和其他配置文件
-                const filePath = e.document.uri.path;
-                const excludedPaths = [
-                    '/.vscode/settings.json',
-                    '/.vscode/launch.json',
-                    '/.vscode/tasks.json',
-                    '/.vscode/extensions.json'
-                ];
-
-                if (excludedPaths.some(excluded => filePath.endsWith(excluded))) {
-                    return;  // 排除配置文件的变化
-                }
-
-                // 记录文档变化（已通过白名单过滤，任何变化都可能是 Augment 的活动）
-                if (e.contentChanges.length > 0) {
-                    const totalChanges = e.contentChanges.reduce(
-                        (sum, change) => sum + change.text.length,
-                        0
-                    );
-
-                    const fileName = e.document.fileName.split('/').pop() || 'unknown';
-                    activityMonitor.recordActivity(`文档变化: ${fileName} (${totalChanges}字符)`);
-                }
-            }
-        })
-    );
-
-    // 注意：不监控诊断信息变化，因为 VSCode 启动时会频繁触发，容易误报
-    // context.subscriptions.push(
-    //     vscode.languages.onDidChangeDiagnostics(e => {
-    //         if (activityMonitor && isEnabled && e.uris.length > 0) {
-    //             const fileCount = e.uris.length;
-    //             activityMonitor.recordActivity(`诊断信息变化: ${fileCount}个文件`);
-    //         }
-    //     })
-    // );
-
-    // 监听终端命令结束事件
-    context.subscriptions.push(
-        vscode.window.onDidEndTerminalShellExecution(event => {
-            if (activityMonitor && isEnabled) {
-                const commandLine = event.execution.commandLine;
-                const command = commandLine?.value || 'unknown';
-                const exitCode = event.exitCode;
-                const confidence = commandLine?.confidence;
-
-                // 只记录高或中等置信度的命令
-                if (confidence === vscode.TerminalShellExecutionCommandLineConfidence.High ||
-                    confidence === vscode.TerminalShellExecutionCommandLineConfidence.Medium) {
-
-                    const shortCommand = command.length > 50 ? command.substring(0, 50) + '...' : command;
-
-                    // 记录命令结束
-                    activityMonitor.recordCommandEnd(shortCommand, exitCode);
-                }
-            }
-        })
-    );
-
-    // 监听窗口焦点变化
+    // 监听窗口焦点变化（全局监听器，不随监控方法配置变化）
     context.subscriptions.push(
         vscode.window.onDidChangeWindowState(async state => {
             // 更新 ActivityMonitor 的焦点状态
@@ -301,7 +75,6 @@ function setupActivityMonitoring(context: vscode.ExtensionContext): void {
 
             // 窗口获得焦点时清除标记
             if (state.focused && titleManager && titleManager.isWindowMarked()) {
-                outputChannel.appendLine('🔄 窗口获得焦点，清除完成标记');
                 await titleManager.clearMarker();
                 if (activityMonitor) {
                     activityMonitor.resetCompletionFlag();
@@ -309,29 +82,243 @@ function setupActivityMonitoring(context: vscode.ExtensionContext): void {
             }
         })
     );
+}
 
-    outputChannel.appendLine('✅ 活动监控事件监听器已设置');
+/**
+ * 启动监控
+ */
+async function startMonitoring(): Promise<void> {
+    if (activityMonitor && titleManager) {
+        log('⚠️ 监控已在运行中');
+        return;
+    }
 
-    // 监控状态栏消息（Augment 显示状态时会触发）
-    // 注意：VSCode API 不直接提供状态栏消息监听
-    // 我们可以通过监控扩展激活来间接检测
+    const config = vscode.workspace.getConfiguration('augmentCompletionIndicator');
+    const idleThreshold = config.get('idleThreshold', 60);
+    const warmupPeriod = config.get('warmupPeriod', 10);
+    const completionMarker = config.get('completionMarker', '🔔 ');
+    const verbose = config.get('verbose', false);
+    const useAugmentStoreWatcher = config.get('useAugmentStoreWatcher', true);
+    const useDocumentWatcher = config.get('useDocumentWatcher', true);
+    const useTerminalWatcher = config.get('useTerminalWatcher', true);
 
-    // 定期检查 Augment 扩展的状态
-    const checkInterval = setInterval(() => {
-        if (!isEnabled) {
-            return;
+    log('');
+    log('='.repeat(60));
+    log('🚀 启动监控');
+    log(`   空闲阈值: ${idleThreshold}秒 | 预热期: ${warmupPeriod}秒 | 标记: "${completionMarker}"`);
+    log(`   详细日志: ${verbose ? '开启' : '关闭'}`);
+    log(`   监控方法: Store[${useAugmentStoreWatcher ? '✅' : '❌'}] 文档[${useDocumentWatcher ? '✅' : '❌'}] 终端[${useTerminalWatcher ? '✅' : '❌'}]`);
+    log('='.repeat(60));
+
+    activityMonitor = new ActivityMonitor(idleThreshold, warmupPeriod, verbose, outputChannel);
+    titleManager = new TitleManager(completionMarker, verbose, outputChannel);
+
+    activityMonitor.onCompletion(() => titleManager?.markCompletion());
+    activityMonitor.start();
+
+    // 启动 Augment Store 监控
+    if (useAugmentStoreWatcher) {
+        augmentStoreWatcher = new AugmentStoreWatcher(verbose, outputChannel, extensionContext);
+        augmentStoreWatcher.onActivity((source) => activityMonitor?.recordActivity(source));
+        const started = await augmentStoreWatcher.start();
+        if (!started) {
+            log('⚠️ Augment Store 监控启动失败');
+        }
+    }
+
+    // 启动文档监控
+    if (useDocumentWatcher) {
+        documentWatcher = new DocumentWatcher(verbose, outputChannel);
+        documentWatcher.onActivity((source) => activityMonitor?.recordActivity(source));
+        documentWatcher.start();
+    }
+
+    // 启动终端监控
+    if (useTerminalWatcher) {
+        terminalWatcher = new TerminalWatcher(verbose, outputChannel);
+        terminalWatcher.onCommandEnd((command, exitCode) => activityMonitor?.recordCommandEnd(command, exitCode));
+        terminalWatcher.start();
+    }
+}
+
+/**
+ * 停止监控
+ */
+function stopMonitoring(): void {
+    log('');
+    log('🛑 停止监控');
+
+    activityMonitor?.stop();
+    activityMonitor = null;
+
+    titleManager?.clearMarker();
+    titleManager = null;
+
+    augmentStoreWatcher?.stop();
+    augmentStoreWatcher = null;
+
+    documentWatcher?.stop();
+    documentWatcher = null;
+
+    terminalWatcher?.stop();
+    terminalWatcher = null;
+}
+
+/**
+ * 更新配置
+ */
+function updateConfiguration(): void {
+    outputChannel.appendLine('');
+    outputChannel.appendLine('🔧 检测到配置变更...');
+
+    const config = vscode.workspace.getConfiguration('augmentCompletionIndicator');
+    const enabled = config.get('enabled', true);
+    const useAugmentStoreWatcher = config.get('useAugmentStoreWatcher', true);
+    const useDocumentWatcher = config.get('useDocumentWatcher', true);
+    const useTerminalWatcher = config.get('useTerminalWatcher', true);
+
+    // 检查 enabled 配置是否变化
+    if (enabled !== isEnabled) {
+        outputChannel.appendLine(`📊 enabled 配置变更: ${isEnabled} → ${enabled}`);
+        isEnabled = enabled;
+        if (enabled) {
+            outputChannel.appendLine('✅ 启用监控');
+            startMonitoring();
+        } else {
+            outputChannel.appendLine('❌ 禁用监控');
+            stopMonitoring();
+        }
+        return;
+    }
+
+    // 检查监控方法配置是否变化
+    const currentUseAugmentStoreWatcher = augmentStoreWatcher !== null;
+    const currentUseDocumentWatcher = documentWatcher !== null;
+    const currentUseTerminalWatcher = terminalWatcher !== null;
+
+    const augmentStoreWatcherChanged = useAugmentStoreWatcher !== currentUseAugmentStoreWatcher;
+    const documentWatcherChanged = useDocumentWatcher !== currentUseDocumentWatcher;
+    const terminalWatcherChanged = useTerminalWatcher !== currentUseTerminalWatcher;
+
+    const monitoringMethodsChanged =
+        augmentStoreWatcherChanged ||
+        documentWatcherChanged ||
+        terminalWatcherChanged;
+
+    if (monitoringMethodsChanged) {
+        log('📊 监控方法配置变更:');
+        if (augmentStoreWatcherChanged) {
+            log(`   - Augment Store 监控: ${currentUseAugmentStoreWatcher} → ${useAugmentStoreWatcher}`);
+        }
+        if (documentWatcherChanged) {
+            log(`   - 文档监控: ${currentUseDocumentWatcher} → ${useDocumentWatcher}`);
+        }
+        if (terminalWatcherChanged) {
+            log(`   - 终端监控: ${currentUseTerminalWatcher} → ${useTerminalWatcher}`);
         }
 
-        // 检查 Augment 扩展是否活跃
-        const augmentExtension = vscode.extensions.getExtension('augment.augment');
-        if (augmentExtension && augmentExtension.isActive) {
-            // 可以在这里添加更多检测逻辑
+        if (isEnabled && activityMonitor) {
+            log('🔄 自动重启监控以应用新配置...');
+            stopMonitoring();
+            startMonitoring();
+        } else {
+            log('ℹ️ 监控未运行，配置将在下次启动时生效');
         }
-    }, 5000);
+        return;
+    }
 
-    context.subscriptions.push({
-        dispose: () => clearInterval(checkInterval)
-    });
+    // 更新其他配置（不需要重启监控）
+    if (activityMonitor && titleManager) {
+        const idleThreshold = config.get('idleThreshold', 60);
+        const warmupPeriod = config.get('warmupPeriod', 10);
+        const completionMarker = config.get('completionMarker', '🔔 ');
+        const verbose = config.get('verbose', false);
+
+        log('📊 其他配置变更:');
+        log(`   - idleThreshold: ${idleThreshold}`);
+        log(`   - warmupPeriod: ${warmupPeriod}`);
+        log(`   - completionMarker: "${completionMarker}"`);
+        log(`   - verbose: ${verbose}`);
+        log('✅ 配置已更新（无需重启监控）');
+
+        activityMonitor.updateConfig(idleThreshold, warmupPeriod, verbose);
+        titleManager.updateConfig(completionMarker, verbose);
+        augmentStoreWatcher?.updateConfig(verbose);
+        documentWatcher?.updateConfig(verbose);
+        terminalWatcher?.updateConfig(verbose);
+    } else {
+        log('ℹ️ 监控未运行，配置将在下次启动时生效');
+    }
+}
+
+/**
+ * 注册所有命令
+ */
+function registerCommands(context: vscode.ExtensionContext): void {
+    // 启用监控
+    context.subscriptions.push(
+        vscode.commands.registerCommand('augmentCompletionIndicator.enable', () => {
+            isEnabled = true;
+            vscode.workspace.getConfiguration('augmentCompletionIndicator')
+                .update('enabled', true, vscode.ConfigurationTarget.Global);
+            log('📢 用户启用了监控');
+            startMonitoring();
+            vscode.window.showInformationMessage('Augment 完成监控已启用');
+        })
+    );
+
+    // 禁用监控
+    context.subscriptions.push(
+        vscode.commands.registerCommand('augmentCompletionIndicator.disable', () => {
+            isEnabled = false;
+            vscode.workspace.getConfiguration('augmentCompletionIndicator')
+                .update('enabled', false, vscode.ConfigurationTarget.Global);
+            log('📢 用户禁用了监控');
+            stopMonitoring();
+            vscode.window.showInformationMessage('Augment 完成监控已禁用');
+        })
+    );
+
+    // 清除标记
+    context.subscriptions.push(
+        vscode.commands.registerCommand('augmentCompletionIndicator.clearMarker', async () => {
+            log('📢 用户手动清除标记');
+            if (titleManager) {
+                await titleManager.clearMarker();
+                activityMonitor?.resetCompletionFlag();
+                vscode.window.showInformationMessage('已清除完成标记');
+            }
+        })
+    );
+
+    // 查看状态
+    context.subscriptions.push(
+        vscode.commands.registerCommand('augmentCompletionIndicator.showStatus', () => {
+            if (activityMonitor) {
+                const status = activityMonitor.getStatus();
+                log('📊 ' + status);
+                vscode.window.showInformationMessage(status);
+                outputChannel.show(true);
+            } else {
+                const message = `监控未启动 (enabled=${isEnabled})`;
+                log('⚠️ ' + message);
+                vscode.window.showWarningMessage(message);
+                outputChannel.show(true);
+            }
+        })
+    );
+
+    // 测试标记（调试用）
+    context.subscriptions.push(
+        vscode.commands.registerCommand('augmentCompletionIndicator.testMark', () => {
+            log('📢 用户手动测试标记');
+            if (titleManager) {
+                titleManager.markCompletion();
+            } else {
+                vscode.window.showWarningMessage('TitleManager 未初始化');
+            }
+        })
+    );
 }
 
 /**
@@ -342,15 +329,12 @@ function clearStartupMarker(): void {
     const currentTitle = config.get<string>('window.title');
 
     if (currentTitle && (currentTitle.includes('🔔') || currentTitle.includes('✓') || currentTitle.includes('✅'))) {
-        outputChannel.appendLine('🧹 检测到遗留的完成标记，正在清除...');
-        outputChannel.appendLine(`   当前标题: "${currentTitle}"`);
-
-        // 删除 window.title 配置，恢复默认
+        log('🧹 检测到遗留的完成标记，正在清除...');
+        log(`   当前标题: "${currentTitle}"`);
         config.update('window.title', undefined, vscode.ConfigurationTarget.Workspace);
-
-        outputChannel.appendLine('✅ 遗留标记已清除');
+        log('✅ 遗留标记已清除');
     } else {
-        outputChannel.appendLine('✓ 未检测到遗留标记');
+        log('✓ 未检测到遗留标记');
     }
 }
 
@@ -359,6 +343,5 @@ function clearStartupMarker(): void {
  */
 export function deactivate() {
     stopMonitoring();
-    console.log('Augment Completion Indicator 已停用');
 }
 

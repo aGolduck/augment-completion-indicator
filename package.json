@@ -3,6 +3,11 @@
   "displayName": "Augment Completion Indicator",
   "description": "监控 Augment 活动状态并在窗口标题显示完成标记",
   "version": "0.1.0",
+  "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/local/augment-completion-indicator"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -45,6 +50,21 @@
           "type": "boolean",
           "default": false,
           "description": "是否显示详细日志"
+        },
+        "augmentCompletionIndicator.useAugmentStoreWatcher": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用 Augment Store 监控（监控 Augment KV store 文件变化）- 最全面的监控方式，推荐启用"
+        },
+        "augmentCompletionIndicator.useDocumentWatcher": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用文档监控（监控文档内容变化）- 捕获代码生成和修改"
+        },
+        "augmentCompletionIndicator.useTerminalWatcher": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用终端监控（监控终端命令执行）- 捕获命令执行结果"
         }
       }
     },
