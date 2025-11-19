@@ -1,5 +1,27 @@
 # 更新日志
 
+## [0.1.2] - 2025-11-19
+
+### 新增功能 ✨
+
+#### 文件系统监控增强
+- ✅ `DocumentWatcher` 新增文件创建监控（`onDidCreateFiles`）
+- ✅ `DocumentWatcher` 新增文件删除监控（`onDidDeleteFiles`）
+- ✅ `DocumentWatcher` 新增文件重命名监控（`onDidRenameFiles`）
+- ✅ 新增 `shouldExcludeFile()` 辅助方法，统一文件过滤逻辑
+- ✅ 新增 `getFileName()` 辅助方法，统一文件名提取逻辑
+
+### 改进 🔧
+- ✅ 将 `disposable` 改为 `disposables` 数组，支持多个事件监听器
+- ✅ 优化日志输出，为不同操作添加表情符号（🆕 创建、🗑️ 删除、📝 重命名）
+- ✅ 更新文档说明，详细描述文件监控功能
+
+### 文档更新 📚
+- ✅ 新增 `docs/FILE_MONITORING.md` - 文件监控功能详细说明
+- ✅ 更新 `README.md` - 更新文档监控功能描述
+
+---
+
 ## [0.1.1] - 2025-11-19
 
 ### 重构 🏗️

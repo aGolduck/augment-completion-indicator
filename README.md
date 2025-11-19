@@ -73,7 +73,7 @@ code --install-extension augment-completion-indicator-0.1.0.vsix
 
 **监控方法配置**：
 - `useAugmentStoreWatcher`: Augment Store 监控 - 监控 Augment KV store 文件变化，最全面的监控方式
-- `useDocumentWatcher`: 文档监控 - 监控文档内容变化，捕获代码生成和修改
+- `useDocumentWatcher`: 文档监控 - 监控文档内容变化、文件创建/删除/重命名，捕获所有文件操作
 - `useTerminalWatcher`: 终端监控 - 监控终端命令执行，捕获命令执行结果
 
 **✨ 所有配置项都支持热生效**：修改配置后会自动应用，无需手动重启。

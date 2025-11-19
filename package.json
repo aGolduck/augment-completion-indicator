@@ -2,7 +2,7 @@
   "name": "augment-completion-indicator",
   "displayName": "Augment Completion Indicator",
   "description": "监控 Augment 活动状态并在窗口标题显示完成标记",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "publisher": "local",
   "repository": {
     "type": "git",
